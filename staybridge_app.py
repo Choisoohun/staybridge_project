@@ -2,54 +2,43 @@ import streamlit as st
 import pandas as pd
 from modules.scoring import compute_score
 
-# 파일 로드
+# 📁 파일 로드
 @st.cache_data
 def load_data():
-    df = pd.read_csv("data/\ub2e8일\ubbf8분양_uc704경도_완료.csv", encoding="utf-8-sig")
+    df = pd.read_csv("data/vacant_locations.csv", encoding="utf-8-sig")  # 파일명 영어로 변경
     df = df.dropna(subset=["위도", "경도"])
     return df
 
-# 사용자 입력
-st.set_page_config(page_title="Stay-Bridge 제조 시스템", layout="centered")
+# 👤 사용자 입력
+st.set_page_config(page_title="Stay-Bridge 주거 차원 제안", layout="centered")
 st.title("🏡 Stay-Bridge 주거 차원 제안")
+
 st.markdown("""
-가장 적합한 공신 주거 참여책을 제안해 드림니다. 하나만 고르세요!
+가장 적합한 공실 주거 참여책을 제안해 드립니다. 하나만 고르세요!
 """)
 
 user_type = st.selectbox("해당 사용자 유형을 선택해주세요:", ["노인", "직장인", "1인가구", "기본"])
 
-# 데이터 로드하기
-with st.spinner("가져오는 중..."):
+# 🧮 데이터 로드
+with st.spinner("📊 가져오는 중..."):
     df = load_data()
 
-# 각 공신에 대해 가장 고정된 값을 제공
+# 📍 공실에 대해 가중치 값 계산 및 출력
 recommendations = []
-seen = set()
-for idx, row in df.iterrows():
-    address = row["\uc2dc\uacf5\uc18c\uc7ac\uc9c0\uc704\uce58"]
-    lat = row["\uc704\ub3c4"]
-    lon = row["\uacbd\ub3c4"]
-    if address not in seen:
-        score = compute_score(lat, lon, user_type)
-        same_address_sizes = df[df["\uc2dc\uacf5\uc18c\uc7ac\uc9c0\uc704\uce58"] == address]["\uaddc\ubaa8\ubcc4\uba74\uc801(m\u00b2)"].dropna().unique().tolist()
-        recommendations.append({
-            "공신 주소": address,
-            "구면": same_address_sizes,
-            "추천점수": score
-        })
-        seen.add(address)
 
-# 추천 결과 표시
-st.subheader(f"📊 \"{user_type}\" 사용자를 위한 가장 맞지는 공신 Top 10")
-result_df = pd.DataFrame(recommendations).sort_values(by="추천점수", ascending=False).head(10)
-st.dataframe(result_df)
+for _, row in df.iterrows():
+    score = compute_score(row["위도"], row["경도"], user_type)
+    recommendations.append({
+        "주소": row["시공사제작위치"],
+        "추천점수": score
+    })
 
-# 저장 버튼
-st.download_button(
-    label="파일로 저장 (CSV)",
-    data=result_df.to_csv(index=False, encoding="utf-8-sig"),
-    file_name="staybridge_recommendation.csv",
-    mime="text/csv"
-)
+# 🔢 점수 기준 정렬
+sorted_recs = sorted(recommendations, key=lambda x: x["추천점수"], reverse=True)
 
-st.caption("\u2665 \uc774 \ud504\ub9ac\uc820테이션은 Streamlit을 이용해 \uad6c현되어 \uc788습니다. ")
+st.subheader("🏆 추천 공실 리스트")
+
+for rec in sorted_recs[:5]:
+    st.markdown(f"📍 **공실 주소:** {rec['주소']}")
+    st.markdown(f"⭐ **추천 점수:** {rec['추천점수']}점")
+    st.markdown("---")
